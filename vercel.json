@@ -6,4 +6,9 @@
       "destination": "/api/handler"
     }
   ]
+  "functions": {
+    "api/**": {
+      "maxDuration": 300
+    }
+  }
 }
