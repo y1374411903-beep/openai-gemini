@@ -478,24 +478,23 @@ const transformMessages = async (messages) => {
     switch (item.role) {
       case "system":
         system_instruction = { parts: await transformMsg(item) };
-       case "function":
+     case "function":
       case "tool":
         // eslint-disable-next-line no-case-declarations
         let { role, parts } = contents[contents.length - 1] ?? {};
         if (role !== "user") {
-          const calls = parts?.calls;
-          parts = []; parts.calls = calls;
+          parts = [];
           contents.push({
             role: "user",
             parts
           });
         }
-        transformToResponse(item, parts);
-        continue;
-      case "assistant":
-        item.role = "model";
-        break;
-      case "user":
+        parts.push({ text: typeof item.content === "string" ? item.content : JSON.stringify(item.content) });
+       continue;
+  case "assistant":
+    item.role = "model";
+    break;
+  case "user":
         break;
       default:
         throw new HttpError(`Unknown message role: "${item.role}"`, 400);
