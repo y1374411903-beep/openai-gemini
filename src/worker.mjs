@@ -478,21 +478,19 @@ const transformMessages = async (messages) => {
     switch (item.role) {
       case "system":
         system_instruction = { parts: await transformMsg(item) };
-        continue;
-      case "function":
+       case "function":
       case "tool":
         // eslint-disable-next-line no-case-declarations
-       let { role, parts } = contents[contents.length - 1] ?? {};
-if (role !== "user") {
-  const calls = parts?.calls;
-  parts = []; parts.calls = calls;
-  contents.push({
-    role: "user",
-    parts
-  });
-}
+        let { role, parts } = contents[contents.length - 1] ?? {};
+        if (role !== "user") {
+          const calls = parts?.calls;
+          parts = []; parts.calls = calls;
+          contents.push({
+            role: "user",
+            parts
+          });
         }
-        transformFnResponse(item, parts);
+        transformToResponse(item, parts);
         continue;
       case "assistant":
         item.role = "model";
