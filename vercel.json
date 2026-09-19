@@ -5,10 +5,10 @@
       "source": "/(.*)",
       "destination": "/api/handler"
     }
-  ]
+  ],
   "functions": {
     "api/**": {
-      "maxDuration": 300
+      "maxDuration": 60
     }
   }
 }
