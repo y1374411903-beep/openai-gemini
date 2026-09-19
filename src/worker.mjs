@@ -1,5 +1,19 @@
 import { Buffer } from "node:buffer";
-
+function cleanSchema(obj) {
+  if (obj !== null && typeof obj === 'object') {
+    if (Array.isArray(obj)) {
+      return obj.map(cleanSchema);
+    }
+    const newObj = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (key !== 'additionalProperties') {
+        newObj[key] = cleanSchema(value);
+      }
+    }
+    return newObj;
+  }
+  return obj;
+}
 export default {
   async fetch (request) {
     if (request.method === "OPTIONS") {
@@ -181,6 +195,7 @@ async function handleCompletions (req, apiKey) {
   }
   const TASK = req.stream ? "streamGenerateContent" : "generateContent";
   let url = `${BASE_URL}/${API_VERSION}/models/${model}:${TASK}`;
+ body = cleanSchema(body);
   if (req.stream) { url += "?alt=sse"; }
   const response = await fetch(url, {
     method: "POST",
