@@ -7,7 +7,7 @@ export default async function handler(request, env, ctx) {
   const keyList = rawKeys.split(",").map((k) => k.trim()).filter(Boolean);
 
   if (keyList.length === 0) {
-    return new Response(JSON.stringify({ error: "Missing GEMINI_API_KEY in environment variables" }), {
+    return new Response(JSON.stringify({ error: "Missing GEMINI_API_KEY" }), {
       status: 500,
       headers: { "Content-Type": "application/json" }
     });
@@ -17,7 +17,7 @@ export default async function handler(request, env, ctx) {
   const apiKey = keyList[Math.floor(Math.random() * keyList.length)];
 
   const url = new URL(request.url);
-  // 将请求精准转发给 Google Gemini 官方 OpenAI 兼容接口
+  // 将请求安全转发到官方兼容的 OpenAI 接口或中转服务
   url.host = "generativelanguage.googleapis.com";
   url.protocol = "https:";
 
