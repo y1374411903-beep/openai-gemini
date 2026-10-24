@@ -1,11 +1,13 @@
-     "source": "/(.*)",
+   {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/(.*)",
       "destination": "/api/handler"
     }
-  ]
   ],
   "functions": {
     "api/**": {
-      "maxDuration": 300
       "maxDuration": 60
     }
   }
