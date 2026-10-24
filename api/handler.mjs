@@ -13,14 +13,15 @@ export default async function handler(request, env, ctx) {
     });
   }
 
-  // 多 Key 随机轮询防限流
   const apiKey = keyList[Math.floor(Math.random() * keyList.length)];
-
   const incomingUrl = new URL(request.url);
-  
-  // 完美对接 Google 的 OpenAI 兼容端点，保留所有子路径（如 /v1/chat/completions 等）
-  let targetPath = incomingUrl.pathname;
-  const targetUrl = new URL("https://generativelanguage.googleapis.com/v1beta/openai" + targetPath + incomingUrl.search);
+
+  // 打印调试信息，方便我们在 Vercel Logs 里面看清 OpenWrite 到底发了什么路径
+  console.log("Incoming Path:", incomingUrl.pathname);
+  console.log("Incoming Search:", incomingUrl.search);
+
+  // 直接将请求干净地转发给 Google 官方 OpenAI 兼容端点
+  const targetUrl = new URL("https://generativelanguage.googleapis.com/v1beta/openai" + incomingUrl.pathname + incomingUrl.search);
 
   const newHeaders = new Headers(request.headers);
   newHeaders.set("Authorization", `Bearer ${apiKey}`);
