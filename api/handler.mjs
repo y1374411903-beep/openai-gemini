@@ -13,11 +13,12 @@ export default async function handler(request, env, ctx) {
     });
   }
 
-  // 随机挑选一个 Key 进行负载均衡
+  // 随机轮询多 Key
   const apiKey = keyList[Math.floor(Math.random() * keyList.length)];
 
   const url = new URL(request.url);
-  // 将请求安全转发到官方兼容的 OpenAI 接口或中转服务
+  
+  // 将请求完美对接到 Google 官方的 OpenAI 兼容端点
   url.host = "generativelanguage.googleapis.com";
   url.protocol = "https:";
 
