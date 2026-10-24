@@ -3,26 +3,29 @@ export const config = {
 };
 
 export default async function handler(request, env, ctx) {
-  // 严格按换行符拆分多行长凭证，并过滤掉空行
   const rawKeys = process.env.GEMINI_API_KEY || (env && env.GEMINI_API_KEY) || "";
   const keyList = rawKeys.split(/\r?\n/).map((k) => k.trim()).filter(Boolean);
 
   if (keyList.length === 0) {
-    return new Response(JSON.stringify({ error: "Missing GEMINI_API_KEY in environment variables" }), {
+    return new Response(JSON.stringify({ error: "Missing GEMINI_API_KEY" }), {
       status: 500,
       headers: { "Content-Type": "application/json" }
     });
   }
 
-  // 实现多 Key 随机轮询负载均衡
+  // 多行长凭证随机轮询
   const apiKey = keyList[Math.floor(Math.random() * keyList.length)];
   const incomingUrl = new URL(request.url);
 
-  // 完美对接 Google 的 OpenAI 兼容端点
-  const targetUrl = new URL("https://generativelanguage.googleapis.com" + incomingUrl.pathname + incomingUrl.search);
+  // 完美处理路径：无论 OpenWrite 怎么拼（带不带 /v1），都能正确映射到 Google 的标准接口
+  let pathname = incomingUrl.pathname;
+  if (pathname.startsWith("/v1")) {
+    pathname = pathname.replace("/v1", "");
+  }
+  
+  const targetUrl = new URL("https://generativelanguage.googleapis.com" + pathname + incomingUrl.search);
 
   const newHeaders = new Headers(request.headers);
-  // 携带选中的那一行长凭证进行 Bearer 鉴权
   newHeaders.set("Authorization", `Bearer ${apiKey}`);
   newHeaders.delete("x-goog-api-key");
   newHeaders.delete("Host");
