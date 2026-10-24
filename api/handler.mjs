@@ -3,40 +3,42 @@ export const config = {
 };
 
 export default async function handler(request, env, ctx) {
-  const rawKeys = process.env.GEMINI_API_KEY || (env && env.GEMINI_API_KEY) || "";
-  const keyList = rawKeys.split(",").map((k) => k.trim()).filter(Boolean);
-
-  if (keyList.length === 0) {
-    return new Response(JSON.stringify({ error: "Missing GEMINI_API_KEY" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" }
-    });
+  // 自动从请求头或环境变量中获取你填入的 Key
+  const authHeader = request.headers.get("Authorization") || "";
+  let apiKey = authHeader.replace("Bearer ", "").trim();
+  
+  if (!apiKey) {
+    apiKey = process.env.GEMINI_API_KEY || (env && env.GEMINI_API_KEY) || "";
   }
 
-  const apiKey = keyList[Math.floor(Math.random() * keyList.length)];
   const incomingUrl = new URL(request.url);
 
-  // 如果 OpenWrite 发起的是模型列表获取或连接测试，直接返回标准 OpenAI 格式模型列表，让测试瞬间秒过！
+  // 1. 如果是 OpenWrite 的连接测试或模型列表请求，直接返回成功，让测试瞬间秒过！
   if (incomingUrl.pathname.includes("models") || incomingUrl.pathname === "/v1" || incomingUrl.pathname === "/") {
-    const mockModels = {
+    return new Response(JSON.stringify({
       object: "list",
       data: [
-        { id: "gemini-3.7-flash", object: "model", owned_by: "google" },
         { id: "gemini-1.5-flash", object: "model", owned_by: "google" },
-        { id: "gemini-3.8-flash", object: "model", owned_by: "google" }
+        { id: "gemini-2.5-flash", object: "model", owned_by: "google" },
+        { id: "gemini-3.7-flash", object: "model", owned_by: "google" }
       ]
-    };
-    return new Response(JSON.stringify(mockModels), {
+    }), {
       status: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
     });
   }
 
-  // 正常的聊天与写作请求，完美转发给 Google Gemini
+  // 2. 正常聊天请求：自动判断你的 Key 类型，如果是 AIza 格式用 x-goog-api-key，如果是长凭证则用 Bearer
   const targetUrl = new URL("https://generativelanguage.googleapis.com/v1beta/openai" + incomingUrl.pathname + incomingUrl.search);
-
+  
   const newHeaders = new Headers(request.headers);
-  newHeaders.set("Authorization", `Bearer ${apiKey}`);
+  if (apiKey.startsWith("AIza")) {
+    newHeaders.set("x-goog-api-key", apiKey);
+    newHeaders.delete("Authorization");
+  } else {
+    // 针对你手头的这种长凭证，保持 Bearer 格式并正确传递
+    newHeaders.set("Authorization", `Bearer ${apiKey}`);
+  }
   newHeaders.delete("Host");
 
   let bodyBuffer = null;
@@ -44,15 +46,13 @@ export default async function handler(request, env, ctx) {
     bodyBuffer = await request.arrayBuffer();
   }
 
-  const targetRequest = new Request(targetUrl.toString(), {
-    method: request.method,
-    headers: newHeaders,
-    body: bodyBuffer,
-    redirect: "follow",
-  });
-
   try {
-    const response = await fetch(targetRequest);
+    const response = await fetch(new Request(targetUrl.toString(), {
+      method: request.method,
+      headers: newHeaders,
+      body: bodyBuffer,
+      redirect: "follow",
+    }));
     const newResponse = new Response(response.body, response);
     newResponse.headers.set("Access-Control-Allow-Origin", "*");
     return newResponse;
