@@ -16,12 +16,20 @@ export default async function handler(request, env, ctx) {
   const apiKey = keyList[Math.floor(Math.random() * keyList.length)];
   const incomingUrl = new URL(request.url);
 
-  // 打印调试信息，方便我们在 Vercel Logs 里面看清 OpenWrite 到底发了什么路径
-  console.log("Incoming Path:", incomingUrl.pathname);
-  console.log("Incoming Search:", incomingUrl.search);
+  let pathname = incomingUrl.pathname;
 
-  // 直接将请求干净地转发给 Google 官方 OpenAI 兼容端点
-  const targetUrl = new URL("https://generativelanguage.googleapis.com/v1beta/openai" + incomingUrl.pathname + incomingUrl.search);
+  // 智能纠错：如果 OpenWrite 把路径变成了中文或乱码（如 /v1/聊天/完成），强制修正为标准聊天接口
+  if (pathname.includes("聊天") || pathname.includes("完成") || pathname.includes("chat")) {
+    pathname = "/v1/chat/completions";
+  } else if (pathname.includes("models") || pathname.includes("模型")) {
+    pathname = "/v1/models";
+  }
+
+  // 去除多余的重复 /v1 前缀
+  pathname = pathname.replace(/\/v1\/v1/g, "/v1");
+
+  // 完美对接到 Google Gemini 的 OpenAI 兼容端点
+  const targetUrl = new URL("https://generativelanguage.googleapis.com/v1beta/openai" + pathname.replace("/v1", "") + incomingUrl.search);
 
   const newHeaders = new Headers(request.headers);
   newHeaders.set("Authorization", `Bearer ${apiKey}`);
