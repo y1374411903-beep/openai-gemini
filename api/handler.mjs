@@ -24,7 +24,6 @@ export const config = {
 };
 
 export default async function handler(request, env, ctx) {
-  // 1. 读取你在 Vercel 配置的多行/逗号分割 Key 列表
   const rawKeys = process.env.GEMINI_API_KEY || (env && env.GEMINI_API_KEY) || "";
   const keyList = rawKeys.split(/[\r\n,]+/).map((k) => k.trim()).filter(Boolean);
 
@@ -32,16 +31,43 @@ export default async function handler(request, env, ctx) {
     return worker.fetch(request, env, ctx);
   }
 
-  // 2. 随机抽取一个 Key 实现轮转负载均衡
-  const randomKey = keyList[Math.floor(Math.random() * keyList.length)];
+  const shuffledKeys = [...keyList].sort(() => Math.random() - 0.5);
 
-  // 3. 只替换 Authorization 头，完全保留原生的 request.body 流，绝不触发流损坏！
-  const newHeaders = new Headers(request.headers);
-  newHeaders.set("Authorization", `Bearer ${randomKey}`);
+  let bodyBuffer = null;
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    bodyBuffer = await request.arrayBuffer();
+  }
 
-  const newRequest = new Request(request, {
-    headers: newHeaders,
-  });
+  let lastResponse = null;
 
-  return worker.fetch(newRequest, env, ctx);
+  for (const key of shuffledKeys) {
+    const newHeaders = new Headers(request.headers);
+    newHeaders.set("Authorization", `Bearer ${key}`);
+
+    const newRequest = new Request(request.url, {
+      method: request.method,
+      headers: newHeaders,
+      body: bodyBuffer,
+      redirect: request.redirect,
+    });
+
+    try {
+      const response = await worker.fetch(newRequest, env, ctx);
+
+      if (response.status !== 429 && response.status !== 503) {
+        return response;
+      }
+
+      lastResponse = response;
+    } catch (e) {
+    }
+  }
+
+  return (
+    lastResponse ||
+    new Response(JSON.stringify({ error: "All GEMINI_API_KEYs quota exceeded." }), {
+      status: 429,
+      headers: { "Content-Type": "application/json" },
+    })
+  );
 }
