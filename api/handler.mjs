@@ -13,17 +13,16 @@ export default async function handler(request, env, ctx) {
     });
   }
 
-  // 随机轮询多 Key
+  // 多 Key 随机轮询防限流
   const apiKey = keyList[Math.floor(Math.random() * keyList.length)];
 
   const incomingUrl = new URL(request.url);
   
-  // 目标指向 Google 官方 Gemini 地址，并保留原本的路径（如 /v1/models 或 /v1/chat/completions）
-  const targetUrl = new URL("https://generativelanguage.googleapis.com" + incomingUrl.pathname + incomingUrl.search);
+  // 完美对接 Google 的 OpenAI 兼容端点，保留所有子路径（如 /v1/chat/completions 等）
+  let targetPath = incomingUrl.pathname;
+  const targetUrl = new URL("https://generativelanguage.googleapis.com/v1beta/openai" + targetPath + incomingUrl.search);
 
   const newHeaders = new Headers(request.headers);
-  // 同时兼容 OpenAI 格式和 Google 格式的 Key 传递
-  newHeaders.set("x-goog-api-key", apiKey);
   newHeaders.set("Authorization", `Bearer ${apiKey}`);
   newHeaders.delete("Host");
 
@@ -41,7 +40,9 @@ export default async function handler(request, env, ctx) {
 
   try {
     const response = await fetch(targetRequest);
-    return response;
+    const newResponse = new Response(response.body, response);
+    newResponse.headers.set("Access-Control-Allow-Origin", "*");
+    return newResponse;
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), {
       status: 502,
